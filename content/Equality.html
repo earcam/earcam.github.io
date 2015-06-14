@@ -16,23 +16,19 @@
 
 # Equality
 
-Some points on equality, examples in Java, broadly applicable to OOP languages.
+A few posts on equality, examples in Java, broadly applicable to OOP languages.
 
-* [Auto-generated equals/hashCode is unnecessary with clean code](#equality-autogen)  
 * [Don't test for referential equality in equals methods](#equality-referential)
 * [Best practice Java equality a violation of SRP](#equality-srp)
+* [Implementing equals/hashCode is not boilerplate](#equality-autogen)  
 * [Avoid implementing equals/hashCode just for the sake of assertEquals](#equality-assert)
 
 <font style="color:green">
 &#x263c; Note:</font> I will be covering *what* should actually be compared within an `equals` method under a later post covering Identity and Entity/Value types.
 
 
-## <a name="equality-autogen"></a>Auto-generated equals/hashCode is unnecessary with clean code
-Don't use your IDE's mindless autogen or [Lombok](https://projectlombok.org/features/EqualsAndHashCode.html)'s shiny magic - to do so is to indicative of equality-obsessive-compulsive-disorder or cyclomatic-complexity-addiction.
 
-
-
-
+---
 ## <a name="equality-referential"></a>Don't test for referential equality in equals methods
 
 <pre><code class="java">
@@ -72,7 +68,7 @@ So favour simplicity, and only if proven to positively impact overall performanc
 
 
 
-
+---
 ## <a name="equality-srp"></a>"Best practice" Java equality a violation of SRP
 
 In 2012 I was lucky enough to get a free ticket to [JFokus](jfokus.se) in Sweden (thanks to the [LJC](http://londonjavacommunity.co.uk "London Java Community")). &nbsp;[Kevlin Henney](https://en.wikipedia.org/wiki/Kevlin_Henney) gave a fascinating talk, among many insights, describing Java as a Class-Oriented, not Object-Oriented language.
@@ -106,7 +102,7 @@ One of the things he highlighted was the so called best practice for overriding 
 	}
 </code></pre>
 
-The vulgarity in the `equals` method above can be accounted for by it's violation of [SRP](http://en.wikipedia.org/wiki/Single_responsibility_principle "Single Responsibility Principle") - it deals with the type/null checking, casting and also compares the field(s).
+The vulgarity in the `equals` method above can be accounted for by it's violation of [SRP](http://en.wikipedia.org/wiki/Single_responsibility_principle "Single Responsibility Principle") - it deals with the type/null checking, casting and also compares the fields.
 
 We can rewrite this, without any control flow branching, just boolean ANDs, as:
 
@@ -156,13 +152,206 @@ We can rewrite this, without any control flow branching, just boolean ANDs, as:
 So not only is this way clearer, simpler and better design, it's also more efficient. 
 
 
+---
+## <a name="equality-autogen"></a>Implementing equals/hashCode is not boilerplate
+Auto-generated equals/hashCode is unnecessary with clean code.
+
+Don't use your IDE's mindless autogen or [Lombok](https://projectlombok.org/)'s shiny magic - to do so is to indicative of equality-obsessive-compulsive-disorder or cyclomatic-complexity-addiction.
+
+Only implement where necessary (e.g. the [assertEquals](#equality-assert) post for example), otherwise the methods should be short. Comparing a lot of fields is clearly a sign of [SRP](http://en.wikipedia.org/wiki/Single_responsibility_principle "Single Responsibility Principle")
+violation, and should hint at missing value-types and composition, which would simplify the `equals` and `hashCode` through delegation.
+
+If the `equals`/`hashCode` contract must be implemented for DTOs (e.g. caching) then perhaps the DTOs should be auto-generated, as these behaviourless structures are truly boilerplate with no place in the domain.
+
+JPA and many object-mapping solutions require identity for equality, nothing else - this can easily be pulled into a [layer supertype](http://martinfowler.com/eaaCatalog/layerSupertype.html "Patterns of Enterprise Application Architecture"), if
+you only write in once it's not boilerplate. 
+
+There's an [example on the Lombok site](https://projectlombok.org/features/EqualsAndHashCode.html), on the left below, which I've refactored in the middle, and the magic version on the right below:
+
+<table>
+<tr>
+<td style="vertical-align:top" title="Original vanilla Java example"><pre><code class="java">
+import java.util.Arrays;
+ 
+public class EqualsAndHashCodeExample {
+   private transient int transientVar = 10;
+   private String name;
+   private double score;
+   private Shape shape = new Square(5, 10);
+   private String[] tags;
+   private int id;
+   
+   public String getName() {
+     return this.name;
+   }
+   
+   @Override public boolean equals(Object o) {
+     if (o == this) return true;
+     if (!(o instanceof EqualsAndHashCodeExample)) return false;
+     EqualsAndHashCodeExample other = (EqualsAndHashCodeExample) o;
+     if (!other.canEqual((Object)this)) return false;
+     if (this.getName() == null ? other.getName() != null : !this.getName().equals(other.getName())) return false;
+     if (Double.compare(this.score, other.score) != 0) return false;
+     if (!Arrays.deepEquals(this.tags, other.tags)) return false;
+     return true;
+   }
+   
+   @Override public int hashCode() {
+     final int PRIME = 59;
+     int result = 1;
+     final long temp1 = Double.doubleToLongBits(this.score);
+     result = (result*PRIME) + (this.name == null ? 0 : this.name.hashCode());
+     result = (result*PRIME) + (int)(temp1 ^ (temp1 >>> 32));
+     result = (result*PRIME) + Arrays.deepHashCode(this.tags);
+     return result;
+   }
+   
+   protected boolean canEqual(Object other) {
+     return other instanceof EqualsAndHashCodeExample;
+   }
+   
+   public static class Shape {} //Added so example compiles
+   
+   public static class Square extends Shape {
+     private final int width, height;
+     
+     public Square(int width, int height) {
+       this.width = width;
+       this.height = height;
+     }
+     
+     @Override public boolean equals(Object o) {
+       if (o == this) return true;
+       if (!(o instanceof Square)) return false;
+       Square other = (Square) o;
+       if (!other.canEqual((Object)this)) return false;
+       if (!super.equals(o)) return false;
+       if (this.width != other.width) return false;
+       if (this.height != other.height) return false;
+       return true;
+     }
+     
+     @Override public int hashCode() {
+       final int PRIME = 59;
+       int result = 1;
+       result = (result*PRIME) + super.hashCode();
+       result = (result*PRIME) + this.width;
+       result = (result*PRIME) + this.height;
+       return result;
+     }
+     
+     protected boolean canEqual(Object other) {
+       return other instanceof Square;
+     }
+   }
+ }
+</code></pre></td>
+<td style="vertical-align:top" title="Refactored"><pre><code class="java">
+import java.util.Objects;
+
+public class EqualsAndHashCodeExampleRefactored {
+	   private transient int transientVar = 10;
+	   private String name;
+	   private double score;
+	   private Shape shape = new Square(5, 10);
+	   private String[] tags;
+	   private int id;
+	   
+	   public String getName() {
+	     return this.name;
+	   }
+
+	@Override
+	public boolean equals(Object o) {
+		return o instanceof EqualsAndHashCodeExampleRefactored && equals((EqualsAndHashCodeExampleRefactored)o);
+	}
+
+	public boolean equals(EqualsAndHashCodeExampleRefactored that) 	{
+		return that != null 
+				&& getClass().equals(that.getClass()) 
+				&& Objects.equals(name, that.getName()) 
+				&& score == that.score
+				&& Objects.deepEquals(tags, that.tags);
+	}
+
+	@Override
+	public int hashCode() {
+		return Objects.hash(name, score, tags);
+	}
+
+	public static class Shape {} // Added so example compiles
+
+	public static class Square extends Shape {
+		private final int width, height;
+
+		public Square(int width, int height) {
+			this.width = width;
+			this.height = height;
+		}
+
+		@Override
+		public boolean equals(Object o) {
+			return o instanceof Square && equals((Square)o);
+		}
+
+		public boolean equals(Square that) {
+			return that != null 
+					&& getClass().equals(that.getClass()) 
+					&& width == that.width 
+					&& height == that.height;
+		}
+
+		@Override
+		public int hashCode() {
+			return Objects.hash(super.hashCode(), width, height); 
+		}
+	}
+}
+</code></pre></td>
+<td style="vertical-align:top" title="Lombok example"><pre><code class="java">
+import lombok.EqualsAndHashCode;
+ 
+@EqualsAndHashCode(exclude={"id", "shape"})
+public class EqualsAndHashCodeExample {
+   private transient int transientVar = 10;
+   private String name;
+   private double score;
+   private Shape shape = new Square(5, 10);
+   private String[] tags;
+   private int id;
+   
+   public String getName() {
+     return this.name;
+   }
+   
+   @EqualsAndHashCode(callSuper=true)
+   public static class Square extends Shape {
+     private final int width, height;
+     
+     public Square(int width, int height) {
+       this.width = width;
+       this.height = height;
+     }
+   }
+}
+</code></pre></td>
+</tr>
+</table>
+
+I'll concede that the Lombok annotated class is certainly shorter, but would argue to the grave that it's more complex - given the obscured magic.
+
+It seems people like these magic ways of hiding functionality, as it reduces the obvious surface area that needs to be tested - but the functionality is
+still there, well probably - at least as long as the annotation processor kicks in, oh and the IDE plugin is setup and ...
 
 
+
+---
 ##  <a name="equality-assert"></a>Avoid implementing equals/hashCode just for the sake of assertEquals
 
 Unless the production code demands it (e.g. usage in a hash map or published as a model from an API), don't avoid implementing `equals`/`hashCode` in the first place.
 
-Use [Hamcrest](http://hamcrest.org/) matchers instead, compose with `allOf`.
+Use [Hamcrest](http://hamcrest.org/) matchers instead, compose with `allOf` - this way you satisfy the most literal meaning of *single assert* (multiple `assertEquals`
+on N fields of the same object as collective of a single post-condition is effectively single assert).  You can pull this into a factory method returning a `Matcher` for composing in `assertThat` or write it as a custom matcher. 
 
 <font style="color:red">
 &#x263c; TODO:</font> Add code for custom property matcher, with example for equality without equals... 
