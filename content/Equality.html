@@ -1,0 +1,183 @@
+<html>
+<head>
+	<link rel="stylesheet" href="../style/default.css" />
+	<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.6/styles/solarized_light.min.css" />
+	
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/8.6/highlight.min.js"></script>
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/showdown/1.0.2/showdown.min.js"></script>
+</head>
+<body>
+
+
+
+<div id="rendered"></div>
+<div id="markdown" style="display:none">
+<!-- Markdown content begins -->
+
+# Equality
+
+Some points on equality, examples in Java, broadly applicable to OOP languages.
+
+* [Auto-generated equals/hashCode is unnecessary with clean code](#equality-autogen)  
+* [Don't test for referential equality in equals methods](#equality-referential)
+* [Best practice Java equality a violation of SRP](#equality-srp)
+* [Avoid implementing equals/hashCode just for the sake of assertEquals](#equality-assert)
+
+<font style="color:green">
+&#x263c; Note:</font> I will be covering *what* should actually be compared within an `equals` method under a later post covering Identity and Entity/Value types.
+
+
+## <a name="equality-autogen"></a>Auto-generated equals/hashCode is unnecessary with clean code
+Don't use your IDE's mindless autogen or [Lombok](https://projectlombok.org/features/EqualsAndHashCode.html)'s shiny magic - to do so is to indicative of equality-obsessive-compulsive-disorder or cyclomatic-complexity-addiction.
+
+
+
+
+## <a name="equality-referential"></a>Don't test for referential equality in equals methods
+
+<pre><code class="java">
+		@Override
+		public boolean equals(Object obj)
+		{
+			// type/null checking ...
+			if(this == obj) {
+				return true;
+			}
+			// property checking ...
+		}
+</code></pre>
+
+How often do you check if an object is equal to itself?  Seriously, think about it...  Consider what's actually going on inside different collections - in any collection **not equals** is a far likelier outcome the **equals**.
+
+The only possible (and certainly false) excuse for checking referential equality would be performance...  The reason this is a false assumption is that the purported optimisation is
+for a single incredibly narrow case.
+
+Much better would be to measure and acknowledge that the `equals` is incredibly expensive to calculate and then revisit your design...  Failing that then 
+simply implementing a cached-on-demand hashCode which is then used as the first equality check after type/null.
+
+<pre><code class="java">
+		@Override
+		public boolean equals(Object obj)
+		{
+			// type/null checking ...
+			if(hashCode() != obj.hashCode()) {
+				return false;
+			}
+			// property checking ...
+		}
+</code></pre>
+This resolves for inverse case which is, hopefully, far broader.
+
+So favour simplicity, and only if proven to positively impact overall performance, then favour the cached `hashCode` alternative. 
+
+
+
+
+## <a name="equality-srp"></a>"Best practice" Java equality a violation of SRP
+
+In 2012 I was lucky enough to get a free ticket to [JFokus](jfokus.se) in Sweden (thanks to the [LJC](http://londonjavacommunity.co.uk "London Java Community")). &nbsp;[Kevlin Henney](https://en.wikipedia.org/wiki/Kevlin_Henney) gave a fascinating talk, among many insights, describing Java as a Class-Oriented, not Object-Oriented language.
+
+One of the things he highlighted was the so called best practice for overriding Java's [Object.equals(Object)](http://docs.oracle.com/javase/8/docs/api/java/lang/Object.html#equals-java.lang.Object- "javadoc"), typically:
+
+<pre><code class="java">
+	import java.util.Objects;
+
+	class Person {
+	
+		private String name;
+		private Integer number;
+	
+		@Override
+		public boolean equals(Object obj)
+		{
+			if(obj instanceof Person) {
+				Person other = ((ThisClass) obj;
+				return Objects.equals(name, that.getName())
+					&& Objects.equals(number, that.getNumber());
+			}
+			return false;
+		}
+
+		@Override
+		public int hashCode()
+		{
+			return Objects.hash(name, number);
+		}
+	}
+</code></pre>
+
+The vulgarity in the `equals` method above can be accounted for by it's violation of [SRP](http://en.wikipedia.org/wiki/Single_responsibility_principle "Single Responsibility Principle") - it deals with the type/null checking, casting and also compares the field(s).
+
+We can rewrite this, without any control flow branching, just boolean ANDs, as:
+
+<pre><code class="java">
+	import java.util.Objects;
+
+	class Person {
+	
+		private String name;
+		private Integer number;
+	
+		@Override
+		public boolean equals(Object other)
+		{
+			return that instanceof Person && equals((Person) other);
+		}
+
+		public boolean equals(Person that)
+		{
+			return that != null &&
+				&& Objects.equals(name, that.getName()) &&
+				Objects.equals(number, that.getNumber());
+		}
+
+		@Override
+		public int hashCode()
+		{
+			return Objects.hash(name, number);
+		}
+	}
+</code></pre>
+
+<font style="color:green">
+&#x263c; Note:</font> Java 7 introduces [java.util.Objects](https://docs.oracle.com/javase/7/docs/api/java/util/Objects.html "javadoc"), removing the tedious null checking of fields.  Additionally it provides [Objects.hash(Object ... values)](https://docs.oracle.com/javase/7/docs/api/java/util/Objects.html#hash%28java.lang.Object...%29 "javadoc").  If you're trapped on an older version of the JDK then implement/copy this utility. 
+
+<font style="color:green">
+&#x263c; Note:</font> IIRC Kevlin's original example uses a trinary in the overloaded `equals`, as:
+<pre><code class="java">return (other instanceof Person) ? equals((Person)other) : false;</code></pre>
+
+
+### Some observations:
+
+*	The previous method's branching is still present, the `if` statement has been folded into a boolean condition. The important part is that the equality test is solved by delegation - this division of responsibility is intuitive and a great improvement in readability
+*	In the vast majority of cases the argument will be cast to the actual type, thus the JVM will invoke the more specific overload, forgoing a needless type check and cast
+*	Incidentally the `instanceof` call will evaluate to false when the argument is null
+
+So not only is this way clearer, simpler and better design, it's also more efficient. 
+
+
+
+
+##  <a name="equality-assert"></a>Avoid implementing equals/hashCode just for the sake of assertEquals
+
+Unless the production code demands it (e.g. usage in a hash map or published as a model from an API), don't avoid implementing `equals`/`hashCode` in the first place.
+
+Use [Hamcrest](http://hamcrest.org/) matchers instead, compose with `allOf`.
+
+<font style="color:red">
+&#x263c; TODO:</font> Add code for custom property matcher, with example for equality without equals... 
+
+<!-- Markdown content ends -->
+</div>
+
+
+<script>
+	var converter = new showdown.Converter(),
+		source = document.getElementById('markdown'),
+		destination = document.getElementById('rendered');
+	
+	destination.innerHTML = converter.makeHtml(source.innerHTML);
+	hljs.initHighlightingOnLoad();
+</script>
+</body>
+</html>

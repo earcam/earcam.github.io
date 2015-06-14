@@ -1,0 +1,36 @@
+@import "http://fonts.googleapis.com/css?family=Exo+2:100,200,300,400,500,600,700,800,900,300italic,400italic,500italic,600italic,700italic,800italic,900italic,200italic,100italic";
+@import url(http://fonts.googleapis.com/css?family=Audiowide);
+
+body {
+	font: 400 15px 'Exo 2';
+	background-color: #fcfcfa;
+}
+
+h1, h2, h3, h4, h5 {
+	font-face: Audiowide;
+}
+
+h2 {
+	padding-top: 30px;
+    /*text-decoration: overline;*/
+}
+
+
+pre code {
+	font-size: 13px
+}
+
+code:not(.hljs) { 
+	color: #606060;
+	font-weight: 600;
+}
+
+.info {
+border: 1px solid;
+margin: 10px 0px;
+padding:15px 10px 15px 50px;
+background-repeat: no-repeat;
+background-position: 10px center;
+color: #00529B;
+background-color: #BDE5F8;
+}
