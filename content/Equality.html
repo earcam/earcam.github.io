@@ -340,8 +340,9 @@ public class EqualsAndHashCodeExample {
 
 I'll concede that the Lombok annotated class is certainly shorter, but would argue to the grave that it's more complex - given the obscured magic.
 
-It seems people like these magic ways of hiding functionality, as it reduces the obvious surface area that needs to be tested - but the functionality is
-still there, well probably - at least as long as the annotation processor kicks in, oh and the IDE plugin is setup and ...
+It seems people like *perceived* simplicity, as it reduces the obvious surface area that needs to be tested - but the functionality is
+still there, well probably - at least as long as the code generation kicks in, oh and the IDE plugin is setup and ... argh!  
+IMO this is complexity is far more expensive that 3 trivial, self-documenting methods, that expose this functionality to the coverage tool.
 
 
 
